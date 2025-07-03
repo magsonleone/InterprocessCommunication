@@ -4,43 +4,42 @@
   <img src="https://github.com/Nice3point/InterprocessCommunication/assets/20504884/21d38cc0-9dfe-46af-959d-8deffaf91b3c" />
 </p>
 
-Все мы знаем как сложно поддерживать крупные программы, и успевать за прогрессом. Разработчики плагинов для Revit это понимают как никто лучше.
-Нам приходится писать свои программы на .NET Framework 4.8. Нам приходится отказываться от современных и быстрых библиотек.
-Это в конечном сказывается и на пользователях, которые вынуждены пользоваться устаревшим программным обеспечением.
+We all know how difficult it is to maintain large programs and keep up with progress. Revit plugin developers understand this better than anyone.
+We have to write our programs on .NET Framework 4.8. We have to give up on modern and fast libraries.
+This ultimately affects the users, who are forced to use outdated software.
 
-В таких сценариях разделение приложения на несколько процессов с использованием Named Pipes представляется превосходным решением благодаря своей производительности и надежности.
-В этой статье мы рассмотрим, как создать и использовать Named Pipes для взаимодействия между приложением Revit, работающим на .NET 4.8 и его плагина, работающим на .NET 7.
+In such scenarios, splitting an application into multiple processes using Named Pipes is an excellent solution due to its performance and reliability.
+In this article, we will look at how to create and use Named Pipes for communication between a Revit application running on .NET 4.8 and its plugin running on .NET 7.
 
+# Table of Contents
 
-# Содержание
+* [Introduction to using Named Pipes for communication between applications on different .NET versions](#introduction-to-using-named-pipes-for-communication-between-applications-on-different-net-versions)
+* [What are Named Pipes?](#what-are-named-pipes)
+* [Interaction between applications on .NET 4.8 and .NET 7](#interaction-between-applications-on-net-48-and-net-7)
+  * [Creating a server](#creating-a-server)
+  * [Creating a client](#creating-a-client)
+  * [Transfer protocol](#transfer-protocol)
+  * [Connection management](#connection-management)
+  * [Two-way communication](#two-way-communication)
+  * [Implementing a Revit plugin](#implementing-a-revit-plugin)
+* [Installing .NET Runtime during plugin installation](#installing-net-runtime-during-plugin-installation)
+* [Conclusion](#conclusion)
 
-* [Введение в использование Named Pipes для общения между приложениями на разных версиях .NET](#введение-в-использование-named-pipes-для-общения-между-приложениями-на-разных-версиях-net)
-* [Что такое Named Pipes?](#что-такое-named-pipes)
-* [Взаимодействие между приложениями на .NET 4.8 и .NET 7](#взаимодействие-между-приложениями-на-net-48-и-net-7)
-  * [Создание сервера](#создание-сервера)
-  * [Создание клиента](#создание-клиента)
-  * [Протокол передачи](#протокол-передачи)
-  * [Управление соединениями](#управление-соединениями)
-  * [Двусторонняя передача](#двусторонняя-передача)
-  * [Реализация плагина для Revit](#реализация-плагина-для-revit)
-* [Установка .NET Runtime во время установки плагина](#установка-net-runtime-во-время-установки-плагина)
-* [Заключение](#заключение)
+# Introduction to using Named Pipes for communication between applications on different .NET versions
 
-# Введение в использование Named Pipes для общения между приложениями на разных версиях .NET
+In the world of application development, it is often necessary to ensure data exchange between different applications, especially when they run on different versions of .NET or different languages.
+Splitting a single application into multiple processes must be justified. What is easier, calling a function directly, or exchanging messages? Obviously the first one.
 
-В мире разработки приложений часто требуется обеспечить обмен данными между разными приложениями, особенно в случаях, когда они работают на разных версиях .NET или разных языках.
-Разделение одного приложения на несколько процессов должно быть обоснованным. Что проще, вызвать функцию напрямую, или обменяться сообщениями? Очевидно первое.
+So what are the advantages of doing this?
 
-Тогда какие преимущества в том чтобы это делать?
+- Resolving dependency conflicts
 
-- Решение конфликта зависимостей
+  With each passing year, the size of Revit plugins grows larger and larger, and dependencies grow exponentially.
+  Plugins can use incompatible versions of the same library, which will cause the program to crash. Process isolation solves this problem.
 
-  С каждым годом размер плагинов для Revit все больше и больше растет, а зависимости растут в геометрической прогрессии.
-  Плагины могут использовать несовместимые версии одной библиотеки, что вызовет краш программы. Изоляция процессов решает эту проблему.
+- Performance
 
-- Производительность
-
-    Ниже приведены замеры производительности сортировки и математических вычислений на разных версиях .NET
+    Below are performance measurements for sorting and mathematical calculations on different versions of .NET.
 
     ```
     BenchmarkDotNet v0.13.9, Windows 11 (10.0.22621.1702/22H2/2022Update/SunValley2)
@@ -59,19 +58,19 @@
   | MinValue    | .NET Framework 4.8 |    58,019.0 ns |    460.30 ns |    430.57 ns |      40 B |
   | MaxValue    | .NET Framework 4.8 |    66,053.4 ns |    610.28 ns |    541.00 ns |      41 B |
 
-  Разница в 68 раз в скорости при нахождении минимального значение, и полное отсутствие выделения памяти, впечатляет.
+  A 68-fold speed difference in finding the minimum value, and a complete absence of memory allocation, is impressive.
 
-Тогда как написать программу на последней версии .NET, которая будет взаимодействовать с несовместимым .NET framework?
-Создать два приложения, Server и Client, не добавляя зависимостей между друг другом и настроить взаимодействие между ними по настроенному протоколу.
+So how do you write a program on the latest version of .NET that will interact with an incompatible .NET framework?
+Create two applications, a Server and a Client, without adding dependencies between them, and set up communication between them according to a configured protocol.
 
-Ниже приведены некоторые из возможных вариантов взаимодействия двух приложений:
+Below are some of the possible options for interaction between two applications:
 
-1. Использование WCF (Windows Communication Foundation)
-2. Использование сокетов (TCP или UDP)
-3. Использование Named Pipes
-4. Использование сигналов операционной системы (например, сигналов Windows):
+1. Using WCF (Windows Communication Foundation)
+2. Using sockets (TCP or UDP)
+3. Using Named Pipes
+4. Using operating system signals (e.g., Windows messages):
 
-   Пример кода компании Autodesk, взаимодействие плагина Project Browser с бекендом Revit посредством сообщений
+   Example code from Autodesk, communication between the Project Browser plugin and the Revit backend via messages
 
     ```c#
     public class DataTransmitter : IEventObserver
@@ -118,37 +117,37 @@
     }
     ```
 
-У каждого варианта есть свои достоинства и недостатки, самым удобным на мой взгляд, для взаимодействия на одной локальной машине является Named Pipes. Его мы и рассмотрим.
+Each option has its own advantages and disadvantages, the most convenient in my opinion, for interaction on a single local machine is Named Pipes. We will consider it.
 
-# Что такое Named Pipes?
+# What are Named Pipes?
 
-Named Pipes представляют собой механизм межпроцессного взаимодействия (Inter-Process Communication, IPC), который позволяет процессам обмениваться данными через именованные каналы.
-Они обеспечивают однонаправленное или двунаправленное соединение между процессами.
-Помимо высокой производительности, Named Pipes также предлагают различные уровни безопасности, что делает их привлекательным решением для многих сценариев взаимодействия между процессами.
+Named Pipes are an inter-process communication (IPC) mechanism that allows processes to exchange data through named channels.
+They provide a one-way or two-way connection between processes.
+In addition to high performance, Named Pipes also offer various levels of security, making them an attractive solution for many inter-process communication scenarios.
 
-# Взаимодействие между приложениями на .NET 4.8 и .NET 7
+# Interaction between applications on .NET 4.8 and .NET 7
 
-Рассмотрим два приложения, одно из которых содержит бизнес-логику (сервер), а другое - пользовательский интерфейс (клиент).
-Для обеспечения связи между этими двумя процессами используется NamedPipe.
+Let's consider two applications, one of which contains business logic (server), and the other - a user interface (client).
+To ensure communication between these two processes, a NamedPipe is used.
 
-Принцип работы NamedPipe включает в себя следующие шаги:
+The principle of operation of a NamedPipe includes the following steps:
 
-1. **Создание и конфигурирование NamedPipe**: Сервер создает и конфигурирует
-   NamedPipe с определенным именем, которое будет доступно клиенту. Клиенту необходимо
-   знать это имя, чтобы подключиться к трубе.
-2. **Ожидание подключения**: Сервер начинает ожидать подключения клиента к трубе.
-   Это блокирующая операция, и сервер остается в подвешенном состоянии до тех пор, пока клиент не подключится.
-3. **Подключение к NamedPipe**: Клиент инициирует подключение к NamedPipe, указывая имя трубы, к которой он хочет подключиться.
-4. **Обмен данными**: После успешного соединения клиент и сервер могут обмениваться
-   данными в виде байтовых потоков. Клиент отправляет запросы на выполнение бизнес-логики, а сервер обрабатывает эти запросы и отсылает результаты.
-5. **Завершение сеанса**: После завершения обмена данными клиент и сервер могут закрыть соединение с NamedPipe.
+1. **Creating and configuring a NamedPipe**: The server creates and configures
+   a NamedPipe with a specific name that will be available to the client. The client needs
+   to know this name to connect to the pipe.
+2. **Waiting for a connection**: The server starts waiting for a client to connect to the pipe.
+   This is a blocking operation, and the server remains in a suspended state until the client connects.
+3. **Connecting to a NamedPipe**: The client initiates a connection to the NamedPipe, specifying the name of the pipe to which it wants to connect.
+4. **Data exchange**: After a successful connection, the client and server can exchange
+   data in the form of byte streams. The client sends requests to execute business logic, and the server processes these requests and sends the results.
+5. **Session termination**: After the data exchange is complete, the client and server can close the connection to the NamedPipe.
 
-## Создание сервера
+## Creating a server
 
-На платформе .NET серверная часть представлена классом `NamedPipeServerStream`. Реализация класса предоставляет асинхронные и синхронные методы для работы с NamedPipe.
-Во избежание блокировки основного потока, мы будем использовать асинхронные методы.
+On the .NET platform, the server part is represented by the `NamedPipeServerStream` class. The implementation of the class provides asynchronous and synchronous methods for working with NamedPipe.
+To avoid blocking the main thread, we will use asynchronous methods.
 
-Пример кода для создания NamedPipeServer:
+Example code for creating a NamedPipeServer:
 
 ```C#
 public static class NamedPipeUtil
@@ -180,18 +179,18 @@ public static class NamedPipeUtil
 }
 ```
 
-Имя сервера не должно содержать специальные символы во избежание исключения.
-Для создания имени трубы мы будем использовать хеш, созданный из имени пользователя и текущей папки, достаточно уникально чтобы клиент при подключении использовал именно этот сервер.
-Вы можете изменить это поведение или использовать любое имя в рамках своего проекта, особенно если клиент и сервер находятся в разных директориях.
+The server name must not contain special characters to avoid an exception.
+To create the pipe name, we will use a hash created from the username and the current folder, which is unique enough for the client to use this specific server when connecting.
+You can change this behavior or use any name within your project, especially if the client and server are in different directories.
 
-Данный подход используется в [Roslyn .NET compiler](https://github.com/dotnet/roslyn). Для тех кто сильнее хочет углубиться в эту тему, рекомендую изучить исходный код проекта
+This approach is used in the [Roslyn .NET compiler](https://github.com/dotnet/roslyn). For those who want to delve deeper into this topic, I recommend studying the source code of the project.
 
-`PipeDirection` указывает направления канала, `PipeDirection.In` говорит о том что сервер будет только принимать сообщения, а `PipeDirection.InOut` сможет как принимать, так и отправлять их.
+`PipeDirection` specifies the direction of the channel, `PipeDirection.In` indicates that the server will only receive messages, and `PipeDirection.InOut` will be able to both receive and send them.
 
-## Создание клиента
+## Creating a client
 
-Для создания клиента воспользуемся классом NamedPipeClientStream. Код практически аналогичен с сервером, и может немного отличаться в зависимости от версий .NET.
-Например, в .NET framework 4.8 значения `PipeOptions.CurrentUserOnly` нет, но появилось в .NET 7.
+To create a client, we will use the `NamedPipeClientStream` class. The code is almost identical to the server, and may differ slightly depending on the .NET version.
+For example, in .NET framework 4.8 the `PipeOptions.CurrentUserOnly` value does not exist, but it appeared in .NET 7.
 
 ```C#
 /// <summary>
@@ -218,18 +217,18 @@ private static string GetPipeName()
 }
 ```
 
-## Протокол передачи
+## Transfer protocol
 
-NamedPipe представляет собой Stream, что позволяет нам записывать любую последовательность байтов в поток.
-Однако, работать с байтами напрямую может быть не очень удобно, особенно когда мы имеем дело со сложными данными или структурами.
-Для упрощения взаимодействия с потоками данных и структурирования информации в удобном формате используются протоколы передачи.
+A NamedPipe is a Stream, which allows us to write any sequence of bytes to the stream.
+However, working with bytes directly can be inconvenient, especially when we are dealing with complex data or structures.
+To simplify interaction with data streams and structure information in a convenient format, transfer protocols are used.
 
-Протоколы передачи определяют формат и порядок передачи данных между приложениями.
-Они обеспечивают структурирование информации, чтобы обеспечить понимание и правильную интерпретацию данных между отправителем и получателем.
+Transfer protocols define the format and order of data transmission between applications.
+They provide information structuring to ensure understanding and correct interpretation of data between the sender and receiver.
 
-В случая когда нам нужно отправить "Запрос на выполнение определенной команды на сервере" или "Запрос на обновление настроек приложения",
-сервер должен понимать как его обрабатывать от клиента.
-Поэтому для облегчения обработки запросов и управлением обмена данными, создадим Enum `RequestType`.
+In cases where we need to send "A request to execute a specific command on the server" or "A request to update application settings",
+the server must understand how to process it from the client.
+Therefore, to facilitate request processing and data exchange management, we will create an Enum `RequestType`.
 
 ```C#
 public enum RequestType
@@ -239,7 +238,7 @@ public enum RequestType
 }
 ```
 
-Сам заброс будет представлять класс, который будет содержать всю информацию о передаваемых данных.
+The request itself will be a class that will contain all the information about the transmitted data.
 
 ```c#
 public abstract class Request
@@ -283,9 +282,9 @@ public abstract class Request
 }
 ```
 
-Класс содержит базовый код для записи данных в поток. `AddRequestBody()` используется производными классами, для записи для записи собственных структурированных данных.
+The class contains the basic code for writing data to the stream. `AddRequestBody()` is used by derived classes to write their own structured data.
 
-Примеры производных классов:
+Examples of derived classes:
 
 ```C#
 /// <summary>
@@ -355,13 +354,13 @@ public class UpdateModelRequest : Request
 }
 ```
 
-Используя данную структуру, клиенты могут создавать запросы различных типов, каждый из которых определяет собственную логику обработки данных и параметров.
-Классы `PrintMessageRequest` и `UpdateModelRequest` предоставляют примеры запросов, которые можно отправить серверу для выполнения конкретных задач.
+Using this structure, clients can create requests of various types, each of which defines its own logic for processing data and parameters.
+The `PrintMessageRequest` and `UpdateModelRequest` classes provide examples of requests that can be sent to the server to perform specific tasks.
 
-На стороне сервера, необходимо разработать соответствующую логику обработки входящих запросов.
-Для этого сервер должен читать данные из потока и использовать полученные параметры для выполнения нужных операций.
+On the server side, it is necessary to develop the appropriate logic for processing incoming requests.
+To do this, the server must read data from the stream and use the received parameters to perform the necessary operations.
 
-Пример полученного запроса на стороне сервера:
+Example of a received request on the server side:
 
 ```c#
 /// <summary>
@@ -499,16 +498,16 @@ public class UpdateModelRequest : Request
 }
 ```
 
-Метод `ReadAsync()` считывает тип запроса из потока, а затем, в зависимости от типа, считывает соответствующие данные и создает объект соответствующего запроса.
+The `ReadAsync()` method reads the request type from the stream, and then, depending on the type, reads the corresponding data and creates an object of the corresponding request.
 
-Реализация протокола передачи данных и структурирование запросов в виде классов позволяют эффективно управлять обменом информацией между клиентом и сервером, обеспечивая при этом
-структурированное и понятное взаимодействие между двумя сторонами.
-Однако, при проектировании подобных протоколов необходимо учитывать возможные риски безопасности, а также убедиться, что оба конца взаимодействия правильно обрабатывают все возможные случаи.
+Implementing a data transfer protocol and structuring requests in the form of classes allow you to effectively manage the exchange of information between the client and the server, while ensuring
+a structured and understandable interaction between the two parties.
+However, when designing such protocols, it is necessary to consider possible security risks, as well as to make sure that both ends of the interaction correctly handle all possible cases.
 
-## Управление соединениями
+## Connection management
 
-Для отправки сообщений с UI клиента на сервер, создадим класс ClientDispatcher который будет обеспечивать обработку соединений,
-тайм-аутов и планирование запросов, предоставляя интерфейс для взаимодействия клиента с сервером через именованные трубы.
+To send messages from the UI client to the server, we will create a `ClientDispatcher` class that will handle connections,
+timeouts, and request scheduling, providing an interface for the client to interact with the server through named pipes.
 
 ```C#
 /// <summary>
@@ -540,14 +539,14 @@ public class ClientDispatcher
 }
 ```
 
-Принцип работы:
+Principle of operation:
 
-1. **Инициализация:** В конструкторе класса инициализируется `NamedPipeClientStream`, используемый для создания клиентского потока с именованным каналом.
-2. **Установка подключения:** Метод `ConnectToServer` инициирует асинхронное подключение к серверу. Результат операции сохраняется в `Task`.
-   `TimeOutNewProcess` используется для отключения клиента в случае возникновения непредвиденных исключений.
-3. **Отправка запросов:** Метод `WriteRequestAsync` предназначен для асинхронной отправки объекта Request через установленное соединение. Запрос отправится только после установки соединения.
+1. **Initialization:** The constructor of the class initializes a `NamedPipeClientStream`, which is used to create a client stream with a named pipe.
+2. **Establishing a connection:** The `ConnectToServer` method initiates an asynchronous connection to the server. The result of the operation is stored in a `Task`.
+   `TimeOutNewProcess` is used to disconnect the client in case of unexpected exceptions.
+3. **Sending requests:** The `WriteRequestAsync` method is designed for asynchronous sending of a `Request` object through an established connection. The request will be sent only after the connection is established.
 
-Для приема сообщений сервером, создадим класс ServerDispatcher который управлять соединением и читать запросы.
+To receive messages by the server, we will create a `ServerDispatcher` class that will manage the connection and read requests.
 
 ```C#
 /// <summary>
@@ -600,15 +599,15 @@ public class ServerDispatcher
 }
 ```
 
-Принцип работы:
+Principle of operation:
 
-1. **Инициализация:** В конструкторе класса инициализируется `NamedPipeServerStream`, используемый для создания серверного потока с именованным каналом.
-2. **Прослушивание подключений:** Метод `ListenAndDispatchConnections` асинхронного ожидает подключения клиента, после завершения обработки запросов закрывает именованный канал и освобождает
-   ресурсы.
-3. **Обработка запросов:** Метод `ListenAndDispatchConnectionsCoreAsync` обрабатывает запросы, до момента отключения клиента.
-   В зависимости от типа запроса происходит соответствующая обработка данных, например, вывод в консоль содержания сообщения или обновление модели.
+1. **Initialization:** The constructor of the class initializes a `NamedPipeServerStream`, which is used to create a server stream with a named pipe.
+2. **Listening for connections:** The `ListenAndDispatchConnections` method asynchronously waits for a client connection, after which it closes the named pipe and releases
+   resources.
+3. **Processing requests:** The `ListenAndDispatchConnectionsCoreAsync` method processes requests until the client disconnects.
+   Depending on the type of request, the corresponding data is processed, for example, outputting the message content to the console or updating the model.
 
-Пример отправки запроса из UI на сервер:
+Example of sending a request from the UI to the server:
 
 ```C#
 
@@ -649,21 +648,21 @@ public partial class MainViewModel : ObservableObject
 }
 ```
 
-Пример кода полностью доступен в репозитории, вы можете запустить его на своей машине выполнив несколько шагов:
+The example code is fully available in the repository, you can run it on your machine by following a few steps:
 
-- Запустите "Build Solution"
-- Запустите "Run OneWay\Backend"
+- Run "Build Solution"
+- Run "Run OneWay\Backend"
 
-Приложение автоматически запустит Server и Client, а полный вывод сообщений передающихся по NamedPipe вы увидите в консоли IDE.
+The application will automatically start the Server and Client, and you will see the full output of messages transmitted over the NamedPipe in the IDE console.
 
-## Двусторонняя передача
+## Two-way communication
 
-Часто возникают ситуации, когда обычная однонаправленная передача данных от клиента к серверу недостаточна.
-В таких случаях необходимо обрабатывать ошибки или отправлять результаты в ответ. Чтобы обеспечить более сложное взаимодействие между клиентом и сервером, разработчикам приходится прибегать
-к применению двухсторонней передачи данных, которая позволяет обмениваться информацией в обоих направлениях.
+Situations often arise where the usual one-way data transfer from the client to the server is insufficient.
+In such cases, it is necessary to handle errors or send results in response. To ensure a more complex interaction between the client and the server, developers have to resort to
+the use of two-way data transfer, which allows information to be exchanged in both directions.
 
-Как и в случае с запросами, для эффективной обработки ответов также необходимо определить перечисление для типов ответов.
-Это позволит клиенту правильно интерпретировать полученные данные.
+As with requests, to effectively process responses, it is also necessary to define an enumeration for response types.
+This will allow the client to correctly interpret the received data.
 
 ```C#
 public enum ResponseType
@@ -676,8 +675,8 @@ public enum ResponseType
 }
 ```
 
-Для эффективной обработки ответов потребуется создать новый класс, названный Response.
-По функционалу он ничем не отличается от класса Request, однако в отличие от Request, который может читаться на сервере, Response будет записываться в поток.
+To effectively process responses, you will need to create a new class called `Response`.
+In terms of functionality, it is no different from the `Request` class, but unlike `Request`, which can be read on the server, `Response` will be written to the stream.
 
 ```C#
 /// <summary>
@@ -727,12 +726,12 @@ public abstract class Response
 }
 ```
 
-Производные классы вы можете найти в репозитории проекта: [PipeProtocol](https://github.com/Nice3point/InterprocessCommunication/blob/main/TwoWay/Backend/Server/PipeProtocol.cs)
+You can find the derived classes in the project repository: [PipeProtocol](https://github.com/Nice3point/InterprocessCommunication/blob/main/TwoWay/Backend/Server/PipeProtocol.cs)
 
-Для того чтобы сервер мог отправлять ответы клиенту, мы должны модифицировать класс `ServerDispatcher`.
-Это позволит записывать ответы в Stream после выполнения задачи.
+In order for the server to be able to send responses to the client, we must modify the `ServerDispatcher` class.
+This will allow writing responses to the Stream after the task is completed.
 
-Так же изменим направление трубы на двунаправленное:
+We will also change the pipe direction to bidirectional:
 
 ```C#
 _server = NamedPipeUtil.CreateServer(PipeDirection.InOut);
@@ -743,7 +742,7 @@ _server = NamedPipeUtil.CreateServer(PipeDirection.InOut);
 public async Task WriteResponseAsync(Response response) => await response.WriteAsync(_server);
 ```
 
-Для демонстрации работы добавим задержку на 2 секунды, эмулируя тяжелую задачу, в методе ListenAndDispatchConnectionsCoreAsync:
+To demonstrate the operation, we will add a 2-second delay, emulating a heavy task, in the `ListenAndDispatchConnectionsCoreAsync` method:
 
 ```C#
 private async Task ListenAndDispatchConnectionsCoreAsync()
@@ -771,9 +770,9 @@ private async Task ListenAndDispatchConnectionsCoreAsync()
 }
 ```
 
-В настоящий момент клиент не обрабатывает ответы от сервера. 
-Давайте сделаем это. 
-Создадим в клиенте класс Response, который будет обрабатывать полученные ответы.
+At the moment, the client does not process responses from the server.
+Let's do this.
+Let's create a `Response` class in the client that will process received responses.
 
 ```C#
 /// <summary>
@@ -830,7 +829,7 @@ public abstract class Response
 }
 ```
 
-Далее обновим класс ClientDispatcher, чтобы он мог обрабатывать ответы от сервера. Для этого добавим новый метод и изменим направление на двунаправленное.
+Next, we will update the `ClientDispatcher` class so that it can process responses from the server. To do this, we will add a new method and change the direction to bidirectional.
 
 ```C#
 _client = NamedPipeUtil.CreateClient(PipeDirection.InOut);
@@ -841,7 +840,7 @@ _client = NamedPipeUtil.CreateClient(PipeDirection.InOut);
 public async Task<Response> ReadResponseAsync() => await Response.ReadAsync(_client);
 ```
 
-Также добавим обработку ответа во ViewModel, где будем просто выводить его как сообщение.
+We will also add response handling to the ViewModel, where we will simply display it as a message.
 
 ```C#
 [RelayCommand]
@@ -864,28 +863,28 @@ private async Task UpdateModelAsync()
 }
 ```
 
-Эти изменения позволят более эффективно организовать взаимодействие между клиентом и сервером, обеспечивая более полную и надежную обработку запросов и ответов.
+These changes will allow for more effective organization of the interaction between the client and the server, ensuring more complete and reliable processing of requests and responses.
 
-## Реализация плагина для Revit
+## Implementing a Revit plugin
 
 <p align="center">
   <img src="https://github.com/Nice3point/InterprocessCommunication/assets/20504884/09e0dee3-d4bd-4858-87eb-6bf6766b8dde" />
 </p>
 
-<p align="center">Технологии развиваются, а Revit не меняется © Конфуций</p>
+<p align="center">Technologies evolve, but Revit doesn't change © Confucius</p>
 
-В настоящее время Revit использует .NET Framework 4.8. 
-Однако для улучшения пользовательского интерфейса плагинов, рассмотрим переход на .NET 7. 
-Важно отметить, что бэкэнд плагина будет взаимодействовать только с Revit на устаревшем Framework, и будет выступать в качестве сервера.
+Currently, Revit uses .NET Framework 4.8.
+However, to improve the user interface of plugins, let's consider moving to .NET 7.
+It is important to note that the plugin backend will only interact with Revit on the outdated Framework, and will act as a server.
 
-Давайте создадим механизм взаимодействия, который позволит клиенту отправлять запросы на удаление элементов модели, а затем получать ответы о результате удаления. 
-Для реализации этой функциональности мы будем использовать двустороннюю передачу данных между сервером и клиентом.
+Let's create an interaction mechanism that will allow the client to send requests to delete model elements, and then receive responses about the result of the deletion.
+To implement this functionality, we will use two-way data transfer between the server and the client.
 
-Первым шагом в нашем процессе разработки будет научить плагин автоматически закрываться при закрытии Revit. 
-Для этого мы написали метод, который отправляет ID текущего процесса клиенту. 
-Это поможет клиенту осуществить автоматическое закрытие своего процесса при закрытии родительского процесса Revit.
+The first step in our development process will be to teach the plugin to automatically close when Revit closes.
+To do this, we wrote a method that sends the ID of the current process to the client.
+This will help the client to automatically close its process when the parent Revit process closes.
 
-Код для отправки ID текущего процесса клиенту:
+Code for sending the current process ID to the client:
 
 ```C#
 private static void RunClient(string clientName)
@@ -900,7 +899,7 @@ private static void RunClient(string clientName)
 }
 ```
 
-А вот код для клиента, который осуществляет закрытие своего процесса при закрытии родительского процесса Revit:
+And here is the code for the client, which closes its process when the parent Revit process closes:
 
 ```C#
 protected override void OnStartup(StartupEventArgs args)
@@ -917,7 +916,7 @@ private void ParseCommandArguments(string[] args)
 }
 ```
 
-Кроме того, нам необходим метод, который будет отвечать за удаление выбранных элементов модели:
+In addition, we need a method that will be responsible for deleting the selected model elements:
 
 ```C#
 public static ICollection<ElementId> DeleteSelectedElements()
@@ -933,7 +932,7 @@ public static ICollection<ElementId> DeleteSelectedElements()
 }
 ```
 
-Также обновим метод ListenAndDispatchConnectionsCoreAsync для обработки входящих соединений:
+We will also update the `ListenAndDispatchConnectionsCoreAsync` method to handle incoming connections:
 
 ```C#
 private async Task ListenAndDispatchConnectionsCoreAsync()
@@ -969,7 +968,7 @@ private async Task ProcessDeleteElementsAsync()
 }
 ```
 
-И, наконец, обновленный код ViewModel:
+And finally, the updated ViewModel code:
 
 ```C#
 [RelayCommand]
@@ -992,14 +991,14 @@ private async Task DeleteElementsAsync()
 }
 ```
 
-# Установка .NET Runtime во время установки плагина
+# Installing .NET Runtime during plugin installation
 
-Не у каждого пользователя может быть установлена последняя версия .NET Runtime на локальной машине, нам необходимо внести изменения в установщик плагина.
+Not every user may have the latest version of the .NET Runtime installed on their local machine, so we need to make changes to the plugin installer.
 
-Если вы используете шаблоны [Nice3point.RevitTemplates](https://github.com/Nice3point/RevitTemplates), то внести изменения не составит труда.
-В шаблонах используется библиотека WixSharp, которая позволяет создавать .msi файлы прямо на C#.
+If you are using [Nice3point.RevitTemplates](https://github.com/Nice3point/RevitTemplates) templates, then making changes will not be difficult.
+The templates use the WixSharp library, which allows you to create .msi files directly in C#.
 
-Для добавления пользовательских действий, и установки .NET Runtime создадим `CustomAction`
+To add custom actions and install the .NET Runtime, we will create a `CustomAction`
 
 ```C#
 public static class RuntimeActions
@@ -1111,10 +1110,10 @@ public static class RuntimeActions
 }
 ```
 
-Этот код проверяет, установлена ли требуемая версия .NET на локальной машине, и если нет, то скачивает и устанавливает ее.
-Во время установки обновляется Status текущего хода выполнения скачивания и распаковки Runtime.
+This code checks if the required version of .NET is installed on the local machine, and if not, it downloads and installs it.
+During installation, the status of the current progress of downloading and unpacking the Runtime is updated.
 
-Осталось подключить CustomAction в проект WixSharp, для этого инициализируем свойство `Actions`:
+All that remains is to connect the `CustomAction` to the WixSharp project, for this we will initialize the `Actions` property:
 
 ```C#
 var project = new Project
@@ -1133,24 +1132,24 @@ var project = new Project
 };
 ```
 
-# Заключение
+# Conclusion
 
-В данной статье мы рассмотрели как Named Pipes, преимущественно используемые для взаимодействия между разными процессами, могут быть использованы в сценариях, где требуется обмен данными между приложениями на разных версиях .NET. 
-Имея дело с кодом, который необходимо поддерживать в нескольких версиях, выверенная стратегия межпроцессного взаимодействия (Inter-Process Communication, IPC) может быть полезной и обеспечивать ключевые преимущества, такие как:
+In this article, we looked at how Named Pipes, primarily used for communication between different processes, can be used in scenarios where data exchange between applications on different versions of .NET is required.
+When dealing with code that needs to be maintained across multiple versions, a well-thought-out Inter-Process Communication (IPC) strategy can be useful and provide key benefits, such as:
 
-- Решение конфликтов зависимостей
-- Улучшение производительности
-- Функциональная гибкость
+- Resolving dependency conflicts
+- Improving performance
+- Functional flexibility
 
-Мы обсудили процесс создания сервера и клиента, которые взаимодействуют друг с другом через заранее определенный протокол, а также различные способы управления соединениями.
+We discussed the process of creating a server and a client that interact with each other through a predefined protocol, as well as various ways to manage connections.
 
-Рассмотрели пример ответов сервера и демонстрацию работы обеих сторон взаимодействия.
+We looked at an example of server responses and a demonstration of the operation of both sides of the interaction.
 
-Наконец, мы подчеркнули как Named Pipes используются в разработке плагина для Revit для обеспечения взаимодействия между бекендом, работающим на устаревшей платформе .NET 4.8, и пользовательским интерфейсом, работающим на более новой версии .NET 7.
+Finally, we highlighted how Named Pipes are used in the development of a Revit plugin to ensure communication between the backend, running on the outdated .NET 4.8 platform, and the user interface, running on the newer .NET 7 version.
 
-Демонстрационный код для каждой части этой статьи доступен на GitHub.
+Demonstration code for each part of this article is available on GitHub.
 
-В определенных случаях разделение приложений на отдельные процессы может не только уменьшить зависимости в программе, но и ускорить его выполнение.
-Но давайте не забывать, что выбор подхода требует анализа и должен основываться на реальных требованиях и ограничениях вашего проекта.
+In certain cases, splitting applications into separate processes can not only reduce dependencies in the program, but also speed up its execution.
+But let's not forget that the choice of approach requires analysis and should be based on the real requirements and limitations of your project.
 
-Мы надеемся, что эта статья поможет вам найти оптимальное решение для ваших сценариев межпроцессного взаимодействия и даст понимание, как применять подходы IPC на практике.
+We hope that this article will help you find the optimal solution for your inter-process communication scenarios and give you an understanding of how to apply IPC approaches in practice.
