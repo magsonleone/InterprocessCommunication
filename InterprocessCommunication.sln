@@ -1,5 +1,4 @@
-﻿
-Microsoft Visual Studio Solution File, Format Version 12.00
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "OneWay", "OneWay", "{A1D2EB8A-21AC-4B07-A5F4-E683F2EC5CF0}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Frontend", "OneWay\Frontend\Frontend.csproj", "{AF4E2BF9-BEF3-4564-8964-98B19B424046}"
@@ -35,10 +34,10 @@ Global
 		{AF4E2BF9-BEF3-4564-8964-98B19B424046}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AF4E2BF9-BEF3-4564-8964-98B19B424046}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AF4E2BF9-BEF3-4564-8964-98B19B424046}.Release|Any CPU.Build.0 = Release|Any CPU
-		{3E60AC56-3BCE-4DB7-85E6-4937DFFE0821}.Debug|Any CPU.ActiveCfg = Debug R20|Any CPU
-		{3E60AC56-3BCE-4DB7-85E6-4937DFFE0821}.Debug|Any CPU.Build.0 = Debug R20|Any CPU
-		{3E60AC56-3BCE-4DB7-85E6-4937DFFE0821}.Release|Any CPU.ActiveCfg = Debug R20|Any CPU
-		{3E60AC56-3BCE-4DB7-85E6-4937DFFE0821}.Release|Any CPU.Build.0 = Debug R20|Any CPU
+		{3E60AC56-3BCE-4DB7-85E6-4937DFFE0821}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3E60AC56-3BCE-4DB7-85E6-4937DFFE0821}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3E60AC56-3BCE-4DB7-85E6-4937DFFE0821}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3E60AC56-3BCE-4DB7-85E6-4937DFFE0821}.Release|Any CPU.Build.0 = Release|Any CPU
 		{7E39FB4D-A2E5-4263-8AF6-80ED3742DFC1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{7E39FB4D-A2E5-4263-8AF6-80ED3742DFC1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7E39FB4D-A2E5-4263-8AF6-80ED3742DFC1}.Release|Any CPU.ActiveCfg = Release|Any CPU
